@@ -2,15 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { ethers } from 'ethers';
 const fs = require('fs');
 import axios from 'axios';
+const kolnetABI = require('../abis/rinkebyKolnetAbi.json');
+const erc20ABI = require('../abis/randomContractAbi.json');
+
+import { AbiCoder } from 'ethers/lib/utils';
 
 const ALCHEMY_KEY = '770cmARGW-xp54sXx0NW0PfPew34lh3K';
 const apikey = 'UBY73PQ1HIHCY9D5348318DFK92ZIP723E';
 
-const contractAddress1 = '0x7578E632092D262D78Ebe3a24A6361702CE31EAE'; //KOLNET RINKEBY
+const contractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'; //LINK Address
 
-const contractAddress2 = '0x3C71cB925E5F4227D2793360a1149cc4fd450a91'; //RANDOM CONTRACT ON RINKEBY
-
-const contractAddresses = [contractAddress1, contractAddress2];
 
 const provider = new ethers.providers.WebSocketProvider(
   `wss://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_KEY}`,
@@ -26,7 +27,6 @@ const fetchABI = async (address: string) => {
 //GET MULTIPLE TRANSACTION OF BLOCKS
 const getBlock = async (blockNumber: number) => {
   const response = await provider.getBlockWithTransactions(blockNumber);
-  //   const abi = await fetchABI(contractAddress2);
   return response;
   // const contract = new ethers.Contract(contractAddress2, abi, provider);
   // console.log('parseLog', contract.interface.parseLog(response));
@@ -38,17 +38,11 @@ const getSelectedContractTransaction = (blockTransactions: any) => {
   if (blockTransactions) {
     blockTransactions = blockTransactions.filter((tx: any) => {
       return (
-        tx.from == '0x5bFb3dCE8dAB556BfeB12932Dc96F937C544f757' ||
-        tx.to == '0x5bFb3dCE8dAB556BfeB12932Dc96F937C544f757'
+        tx.from == contractAddress ||
+        tx.to == contractAddress
       );
     });
     if (blockTransactions.length) {
-      console.log(
-        'file: app.service.ts ~ line 41 ~ getSelectedContractTransaction ~ blockTransactions',
-        blockTransactions,
-      );
-      let data = JSON.stringify(blockTransactions);
-      fs.writeFileSync('student-3.json', data);
       return blockTransactions;
     } else {
       console.log('No tx for your address');
@@ -56,61 +50,103 @@ const getSelectedContractTransaction = (blockTransactions: any) => {
     }
   }
 };
+
+const eventFilter = async (contractAddress: any, erc20abi: any) => {
+  // this will return an array with an object for each event
+  
+  const events = erc20abi?.filter((obj: any) => obj.type === 'event');
+  // console.log(events, 'events');
+  const allDecodedEvents = [];
+  for (const event of events) {
+    const types = event?.inputs.map((input: any) => input.type);
+    // knowing which types are indexed will be useful later
+    let indexedInputs: any = [];
+    let unindexedInputs: any = [];
+    event?.inputs?.forEach((input: any) => {
+      input.indexed ? indexedInputs.push(input) : unindexedInputs.push(input);
+    });
+    // event signature
+    const eventSig = `${event?.name}(${types?.toString()})`;
+    // console.log(eventSig, "eventSig",`${event?.name}(${types?.toString()})`)
+    // getting the topic
+    const eventTopic = ethers.utils.id(eventSig);
+    // you could also filter by blocks, see above "Getting the Logs You Need"
+    const logs = await provider.getLogs({
+      fromBlock: 11269925,
+      toBlock: 'latest',
+      address: contractAddress,
+      topics: [eventTopic],
+    });
+    console.log("🚀 ~ file: app.service.ts ~ line 81 ~ eventFilter ~ logs", logs)
+    
+    // need to decode the topics and events
+
+    const decoder = new AbiCoder();
+    const decodedLogs = logs?.map((log: any) => {
+      // remember how we separated indexed and unindexed events?
+      // it was because we need to sort them differently here
+      const decodedTopics = indexedInputs?.map((input: any) => {
+        // we use the position of the type in the array as an index for the
+        // topic, we need to add 1 since the first topic is the event sig
+        const value = decoder?.decode(
+          [input?.type],
+          log.topics[indexedInputs.indexOf(input) + 1],
+        );
+
+        return `${input.name}: ${value}`;
+      });
+      
+      const decodedDataRaw = decoder?.decode(unindexedInputs, log.data);
+      console.log("🚀 ~ file: app.service.ts ~ line 100 ~ decodedLogs ~ decodedDataRaw", unindexedInputs, log.data)
+      const decodedData = unindexedInputs?.map((input: any, i: any) => {
+        return `${input.name}: ${decodedDataRaw[i]}`;
+      });
+      return {
+        decodedTopics,
+        decodedData,
+      };
+    });
+    // let's put everything in one array
+    const eventName = `event: ${event?.name}`;
+    const decodedEvents = decodedLogs?.map((log: any) => [
+      eventName,
+      ...log?.decodedTopics,
+      ...log?.decodedData,
+    ]);
+    // let's pull out the to and from addresses and amounts
+    const toAddresses = decodedEvents?.map(
+      (event: any) => event['values']['to'],
+    );getBlock
+    const fromAddresses = decodedEvents?.map(
+      (event: any) => event['values']['from'],
+    );
+    const amounts = decodedEvents?.map(
+      (event: any) => event['values']['value'],
+    );
+    // console.log('Final Result: ', [
+    //   decodedEvents,
+    // ]);
+    allDecodedEvents.push(decodedEvents);
+  }
+  return allDecodedEvents;
+};
+
 @Injectable()
 export class AppService {
   async getEvents(): Promise<any> {
     console.log('getEvents');
 
-    const abi = await fetchABI('0x5bFb3dCE8dAB556BfeB12932Dc96F937C544f757');
+    // const abi = await fetchABI('0x5bFb3dCE8dAB556BfeB12932Dc96F937C544f757');
+    // let data = (abi);
+    // fs.writeFileSync('kolnet-abi.json', data);
 
-    const contract = await new ethers.Contract(
-      '0x5bFb3dCE8dAB556BfeB12932Dc96F937C544f757',
-      abi,
-      provider,
-    );
-    // LISTENING SPECIFIC EVENT OF CONTRACT
-    // contract.on("DepositPreSaleTokens", (from, to, value, event) => {
-    //   console.log(event);
-    //   let info = {
-    //     from: from,
-    //     to: to,
-    //     amount: ethers.utils.formatUnits(value, 6),
-    //     event: event
-    //   }
-    //   console.log(info);
-    // })
-    // LISTENING ALL EVENTS OF CONTRACT
-    const filter = {
-      address: '0x5bFb3dCE8dAB556BfeB12932Dc96F937C544f757',
-    };
-    // provider.on(filter, (log, event) => {
-    //   //   console.log('listener', log); //returns block number, block hash, transaction index, removed, address, data, topics, transaction hash and log index
-    //   // let txhash = log.transactionHash;
-    //   // provider.getTransactionReceipt
-    //   //   (txhash).then(tx => {
-    //   //   console.log("getTransactionReceipt",tx); //returns transaction object
-    //   // }
-    //   // )
-    //   console.log(
-    //     'eventLogged',
-    //     event,
-    //     'parseLog',
-    //     contract.interface.parseLog(log),
-    //   ); //Fetching function name and arguments from log
-    //   let data = JSON.stringify(contract.interface.parseLog(log));
-    //   fs.writeFileSync('student-2.json', data);
-    // });
+    // eventFilter('0x01BE23585060835E02B77ef475b0Cc51aA1e0709', erc20ABI);
+    const getPastEventsLog = await eventFilter(contractAddress, erc20ABI)
+    // console.log("🚀 ~ file: app.service.ts ~ line 134 ~ AppService ~ getPastEventsLog", getPastEventsLog)
+
+    //GET BLOCK TRANSACTIONS
     provider.on('block', async (block) => {
-      console.log('block', block);
       const blockTxs = await getBlock(block);
-      // console.log(
-      //   'file: app.service.ts ~ line 99 ~ AppService ~ provider.on ~ blockTxs',
-      //   blockTxs,
-      // );
-      // let data = JSON.stringify(blockTxs);
-      // fs.writeFileSync('student-2.json', data);
-
-      //GET BLOCK TRANSACTIONS
       if (blockTxs.transactions) {
         //GET FILTERED SELECTED TRANSACTIONS
         const selectedTxs = await getSelectedContractTransaction(
@@ -118,55 +154,67 @@ export class AppService {
         );
         selectedTxs &&
           selectedTxs.map((tx: any) => {
-            provider.getTransactionReceipt(tx.hash).then(async (tx) => {
-              console.log('getTransactionReceipt', tx);
-              //returns transaction object
-              // let data = JSON.stringify(contract.interface.parseLog({data:tx.data,topics:[tx.]}));
-              // tx.logs&&tx.logs.map((log)=>{
-              //   eventLog.push(contract.interface.parseLog({data:log.data, topics: log.topics}))
-              // })
-              try {
-                let eventLog = [];
-                // for (let i = 0; i < tx.logs.length; i++) {
-                //   console.log(
-                //     'file: app.service.ts ~ line 130 ~ AppService ~ provider.getTransactionReceipt ~ topics',
-                //     {
-                //       data: tx.logs[i].data,
-                //       topics: tx.logs[i].topics,
-                //     },
-                //   );
-                //   eventLog.push(
-                //     await contract.interface.parseLog({
-                //       data: tx.logs[i].data,
-                //       topics: tx.logs[i].topics,
-                //     }),
-                //   );
-                // }
-
-                //TRYING TO PARSE LOGS
-                const result = contract.interface.parseLog({
-                  data: tx.logs[1].data,
-                  topics: tx.logs[1].topics,
+            console.log("🚀 ~ file: app.service.ts ~ line 160 ~ AppService ~ selectedTxs.map ~ tx", tx)
+            provider.getTransactionReceipt(tx.hash).then((tx) => {
+              console.log('getTransactionReceipt', tx?.logs);
+              const events = erc20ABI?.filter((obj: any) => obj.type === 'event');
+              // console.log(events, 'events');
+              const allDecodedEvents = [];
+              for (const event of events) {
+               // knowing which types are indexed will be useful later
+                let indexedInputs: any = [];
+                let unindexedInputs: any = [];
+                event?.inputs?.forEach((input: any) => {
+                  input.indexed ? indexedInputs.push(input) : unindexedInputs.push(input);
                 });
-                console.log(
-                  'file: app.service.ts ~ line 144 ~ AppService ~ provider.getTransactionReceipt ~ result',
-                  result,
-                );
-                let eventData = JSON.stringify(result.args);
-
-                fs.writeFileSync('student-event.json', eventData);
-              } catch (e) {
-                console.log(e);
+                const decoder = new AbiCoder();
+                const txs = tx?.logs.filter((log: any) => {
+                  return log.address === contractAddress;
+                })
+                console.log("🚀 ~ file: app.service.ts ~ line 172 ~ AppService ~ decodedLogs ~ tx?.logs", tx?.logs,txs)
+                const decodedLogs = tx?.logs?.map((log: any) => {
+                  // remember how we separated indexed and unindexed events?
+                  // it was because we need to sort them differently here
+                  let decodedTopics=[]
+                  if (!!indexedInputs.length) {
+                    decodedTopics = indexedInputs?.map((input: any) => {
+                      // we use the position of the type in the array as an index for the
+                      // topic, we need to add 1 since the first topic is the event sig
+                    
+                      const value = decoder?.decode(
+                        [input?.type],
+                        log.topics[indexedInputs.indexOf(input) + 1],
+                      );
+            
+                      return `${input.name}: ${value}`;
+                    });
+                  }
+                  console.log("🚀 ~ file: app.service.ts ~ line 185 ~ AppService ~ decodedLogs ~ unindexedInputs", unindexedInputs, log.data)
+                  // const uni:any = [{ indexed: false, name: 'value', type: 'uint256' }]
+                  const decodedDataRaw = decoder?.decode(unindexedInputs, log.data);
+                  const decodedData = unindexedInputs?.map((input: any, i: any) => {
+                    return `${input.name}: ${decodedDataRaw[i]}`;
+                  });
+                  return {
+                    decodedTopics,
+                    decodedData,
+                  };
+                });
+                // let's put everything in one array
+                const eventName = `event: ${event?.name}`;
+                const decodedEvents = decodedLogs?.map((log: any) => [
+                  eventName,
+                  ...log?.decodedTopics,
+                  ...log?.decodedData,
+                ]);
+                allDecodedEvents.push(decodedEvents);
+                  console.log('Final Result: ', [
+                  decodedEvents,
+                ]);
               }
-
-              let data = JSON.stringify(tx);
-              fs.writeFileSync('student-2.json', data);
-            });
-          });
+            })
+          })
       }
-    });
-    // return 'check your consoles';
+    })
   }
 }
-
-// await erc20.queryFilter(filterFrom, -10, "latest");
