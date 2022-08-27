@@ -12,7 +12,6 @@ const apikey = 'UBY73PQ1HIHCY9D5348318DFK92ZIP723E';
 
 const contractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'; //LINK Address
 
-
 const provider = new ethers.providers.WebSocketProvider(
   `wss://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_KEY}`,
 );
@@ -37,10 +36,7 @@ const getBlock = async (blockNumber: number) => {
 const getSelectedContractTransaction = (blockTransactions: any) => {
   if (blockTransactions) {
     blockTransactions = blockTransactions.filter((tx: any) => {
-      return (
-        tx.from == contractAddress ||
-        tx.to == contractAddress
-      );
+      return tx.from == contractAddress || tx.to == contractAddress;
     });
     if (blockTransactions.length) {
       return blockTransactions;
@@ -53,7 +49,7 @@ const getSelectedContractTransaction = (blockTransactions: any) => {
 
 const eventFilter = async (contractAddress: any, erc20abi: any) => {
   // this will return an array with an object for each event
-  
+
   const events = erc20abi?.filter((obj: any) => obj.type === 'event');
   // console.log(events, 'events');
   const allDecodedEvents = [];
@@ -72,13 +68,16 @@ const eventFilter = async (contractAddress: any, erc20abi: any) => {
     const eventTopic = ethers.utils.id(eventSig);
     // you could also filter by blocks, see above "Getting the Logs You Need"
     const logs = await provider.getLogs({
-      fromBlock: 11269925,
+      fromBlock: 11274256,
       toBlock: 'latest',
       address: contractAddress,
       topics: [eventTopic],
     });
-    console.log("🚀 ~ file: app.service.ts ~ line 81 ~ eventFilter ~ logs", logs)
-    
+    console.log(
+      '🚀 ~ file: app.service.ts ~ line 81 ~ eventFilter ~ logs',
+      logs,
+    );
+
     // need to decode the topics and events
 
     const decoder = new AbiCoder();
@@ -95,9 +94,13 @@ const eventFilter = async (contractAddress: any, erc20abi: any) => {
 
         return `${input.name}: ${value}`;
       });
-      
+
       const decodedDataRaw = decoder?.decode(unindexedInputs, log.data);
-      console.log("🚀 ~ file: app.service.ts ~ line 100 ~ decodedLogs ~ decodedDataRaw", unindexedInputs, log.data)
+      console.log(
+        '🚀 ~ file: app.service.ts ~ line 100 ~ decodedLogs ~ decodedDataRaw',
+        unindexedInputs,
+        log.data,
+      );
       const decodedData = unindexedInputs?.map((input: any, i: any) => {
         return `${input.name}: ${decodedDataRaw[i]}`;
       });
@@ -116,7 +119,8 @@ const eventFilter = async (contractAddress: any, erc20abi: any) => {
     // let's pull out the to and from addresses and amounts
     const toAddresses = decodedEvents?.map(
       (event: any) => event['values']['to'],
-    );getBlock
+    );
+    getBlock;
     const fromAddresses = decodedEvents?.map(
       (event: any) => event['values']['from'],
     );
@@ -141,7 +145,7 @@ export class AppService {
     // fs.writeFileSync('kolnet-abi.json', data);
 
     // eventFilter('0x01BE23585060835E02B77ef475b0Cc51aA1e0709', erc20ABI);
-    const getPastEventsLog = await eventFilter(contractAddress, erc20ABI)
+    const getPastEventsLog = await eventFilter(contractAddress, erc20ABI);
     // console.log("🚀 ~ file: app.service.ts ~ line 134 ~ AppService ~ getPastEventsLog", getPastEventsLog)
 
     //GET BLOCK TRANSACTIONS
@@ -154,47 +158,68 @@ export class AppService {
         );
         selectedTxs &&
           selectedTxs.map((tx: any) => {
-            console.log("🚀 ~ file: app.service.ts ~ line 160 ~ AppService ~ selectedTxs.map ~ tx", tx)
             provider.getTransactionReceipt(tx.hash).then((tx) => {
               console.log('getTransactionReceipt', tx?.logs);
-              const events = erc20ABI?.filter((obj: any) => obj.type === 'event');
+              const events = erc20ABI?.filter(
+                (obj: any) => obj.type === 'event',
+              );
+              console.log(
+                'file: app.service.ts ~ line 170 ~ AppService ~ provider.getTransactionReceipt ~ events',
+                events,
+              );
               // console.log(events, 'events');
               const allDecodedEvents = [];
               for (const event of events) {
-               // knowing which types are indexed will be useful later
+                // knowing which types are indexed will be useful later
                 let indexedInputs: any = [];
                 let unindexedInputs: any = [];
                 event?.inputs?.forEach((input: any) => {
-                  input.indexed ? indexedInputs.push(input) : unindexedInputs.push(input);
+                  input.indexed
+                    ? indexedInputs.push(input)
+                    : unindexedInputs.push(input);
                 });
                 const decoder = new AbiCoder();
+                console.log(
+                  'file: app.service.ts ~ line 175 ~ AppService ~ provider.getTransactionReceipt ~ indexedInputs',
+                  indexedInputs,
+                  unindexedInputs,
+                );
+
                 const txs = tx?.logs.filter((log: any) => {
                   return log.address === contractAddress;
-                })
-                console.log("🚀 ~ file: app.service.ts ~ line 172 ~ AppService ~ decodedLogs ~ tx?.logs", tx?.logs,txs)
-                const decodedLogs = tx?.logs?.map((log: any) => {
+                });
+                const decodedLogs = txs?.map((log: any) => {
                   // remember how we separated indexed and unindexed events?
                   // it was because we need to sort them differently here
-                  let decodedTopics=[]
+                  let decodedTopics = [];
                   if (!!indexedInputs.length) {
                     decodedTopics = indexedInputs?.map((input: any) => {
                       // we use the position of the type in the array as an index for the
                       // topic, we need to add 1 since the first topic is the event sig
-                    
+
                       const value = decoder?.decode(
                         [input?.type],
                         log.topics[indexedInputs.indexOf(input) + 1],
                       );
-            
+
                       return `${input.name}: ${value}`;
                     });
                   }
-                  console.log("🚀 ~ file: app.service.ts ~ line 185 ~ AppService ~ decodedLogs ~ unindexedInputs", unindexedInputs, log.data)
+
                   // const uni:any = [{ indexed: false, name: 'value', type: 'uint256' }]
-                  const decodedDataRaw = decoder?.decode(unindexedInputs, log.data);
-                  const decodedData = unindexedInputs?.map((input: any, i: any) => {
-                    return `${input.name}: ${decodedDataRaw[i]}`;
-                  });
+                  const decodedDataRaw = decoder?.decode(
+                    [unindexedInputs[0]],
+                    log.data,
+                  );
+                  console.log(
+                    'file: app.service.ts ~ line 214 ~ AppService ~ decodedLogs ~ decodedDataRaw',
+                    decodedDataRaw,
+                  );
+                  const decodedData = unindexedInputs?.map(
+                    (input: any, i: any) => {
+                      return `${input.name}: ${decodedDataRaw[i]}`;
+                    },
+                  );
                   return {
                     decodedTopics,
                     decodedData,
@@ -208,13 +233,11 @@ export class AppService {
                   ...log?.decodedData,
                 ]);
                 allDecodedEvents.push(decodedEvents);
-                  console.log('Final Result: ', [
-                  decodedEvents,
-                ]);
+                console.log('Final Result: ', [decodedEvents]);
               }
-            })
-          })
+            });
+          });
       }
-    })
+    });
   }
 }
