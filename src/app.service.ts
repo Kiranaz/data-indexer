@@ -78,7 +78,7 @@ const eventFilter = async (contractAddress: any, erc20abi: any) => {
     const eventTopic = ethers.utils.id(eventSig);
     // you could also filter by blocks, see above "Getting the Logs You Need"
     const logs = await provider.getLogs({
-      fromBlock: 11308500,
+      fromBlock: 11331775,
       toBlock: 'latest',
       address: contractAddress,
       topics: [eventTopic],
