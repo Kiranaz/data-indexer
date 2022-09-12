@@ -26,13 +26,6 @@ const provider = new ethers.providers.WebSocketProvider(
   `wss://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_KEY}`,
 );
 
-const fetchABI = async (address: string) => {
-  const response = await axios.get(
-    `https://api-rinkeby.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${apikey}`,
-  );
-  return response.data.result;
-};
-
 //GET MULTIPLE TRANSACTION OF BLOCKS
 const getBlock = async (blockNumber: number) => {
   const response = await provider.getBlockWithTransactions(blockNumber);

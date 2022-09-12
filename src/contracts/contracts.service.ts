@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-
+import { Contract } from './schema/contract.schema';
 import { ethers } from 'ethers';
 const fs = require('fs');
 import axios from 'axios';
@@ -11,6 +11,8 @@ const elementABI = require('../../abis/elementABI.json');
 
 const ABI = linkABI;
 import { AbiCoder } from 'ethers/lib/utils';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
 const ALCHEMY_KEY = '770cmARGW-xp54sXx0NW0PfPew34lh3K';
 const apikey = 'UBY73PQ1HIHCY9D5348318DFK92ZIP723E';
@@ -34,14 +36,24 @@ const pastEventFilter = async (
     // knowing which types are indexed will be useful later
     let indexedInputs: any = [];
     let unindexedInputs: any = [];
+    console.log(
+      '🚀 ~ file: contracts.service.ts ~ line 39 ~ unindexedInputs',
+      unindexedInputs,
+    );
     event?.inputs?.forEach((input: any) => {
       input.indexed ? indexedInputs.push(input) : unindexedInputs.push(input);
     });
+
     // event signature
     const eventSig = `${event?.name}(${types?.toString()})`;
     console.log(eventSig, 'eventSig', `${event?.name}(${types?.toString()})`);
     // getting the topic
     const eventTopic = ethers.utils.id(eventSig);
+    console.log(
+      '🚀 ~ file: contracts.service.ts ~ line 52 ~ eventTopic',
+      eventTopic,
+    );
+
     // you could also filter by blocks, see above "Getting the Logs You Need"
     const logs = await provider.getLogs({
       fromBlock: startBlock,
@@ -93,10 +105,10 @@ const pastEventFilter = async (
       ...log?.decodedTopics,
       ...log?.decodedData,
     ]);
-    console.log(
-      'file: app.service.ts ~ line 126 ~ eventFilter ~ decodedEvents',
-      JSON.stringify(decodedLogs),
-    );
+    // console.log(
+    //   'file: app.service.ts ~ line 126 ~ eventFilter ~ decodedEvents',
+    //   JSON.stringify(decodedLogs),
+    // );
     // let's pull out the to and from addresses and amounts
     // console.log('Final Result: ', [
     //   decodedEvents,
@@ -206,12 +218,34 @@ const currentEventFilter = async (contractAddress: any, ABI: any) => {
   });
 };
 
+const readFirestorageURL = async (contractABI: string) => {
+  const res = await axios.get(contractABI);
+
+  // console.log(res.data, 'res.data');
+  return res.data;
+};
+
 @Injectable()
 export class ContractsService {
+  constructor(
+    @InjectModel('Contract') private readonly contractModel: Model<Contract>,
+  ) {}
   async listenContract(
     contractAddress: string,
     startBlock: number,
+    contractABI: string,
   ): Promise<any> {
+    const abi = await readFirestorageURL(contractABI);
+
+    // console.log(abi?.filter((obj: any) => obj.type === 'event'));
+
+    const contract = new this.contractModel({
+      contractAddress,
+      startBlock,
+      events: abi?.filter((obj: any) => obj.type === 'event'),
+    });
+    contract.save();
+
     pastEventFilter(contractAddress, ABI, startBlock); //Will take it from User Input
 
     currentEventFilter(contractAddress, ABI);

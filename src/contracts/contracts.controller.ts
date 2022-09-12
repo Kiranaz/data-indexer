@@ -17,6 +17,7 @@ export class ContractsController {
     const printContractAddress = this.contractsService.listenContract(
       initializeContractDto.contractAddress,
       initializeContractDto.startBlock,
+      initializeContractDto.contractABI,
     );
     return printContractAddress;
   }
