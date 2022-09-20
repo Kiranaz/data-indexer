@@ -9,6 +9,21 @@ export class Contract {
   startBlock: number;
 
   @Prop({ required: true })
-  events: any[];
+  indexerName: string;
+
+  @Prop({ required: true })
+  userName: string;
+
+  @Prop({ required: false })
+  description: string;
+
+  @Prop({ required: false, default: false })
+  isSynced: boolean;
+
+  @Prop({ required: true })
+  events: Array<any>;
+
+  @Prop({ required: true })
+  pastEvents: Array<any>;
 }
 export const ContractSchema = SchemaFactory.createForClass(Contract);
