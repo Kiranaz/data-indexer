@@ -18,6 +18,9 @@ export class ContractsController {
       initializeContractDto.contractAddress,
       initializeContractDto.startBlock,
       initializeContractDto.contractABI,
+      initializeContractDto.userName,
+      initializeContractDto.indexerName,
+      initializeContractDto.description,
     );
     return printContractAddress;
   }

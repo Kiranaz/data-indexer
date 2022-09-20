@@ -9,6 +9,18 @@ export class Contract {
   startBlock: number;
 
   @Prop({ required: true })
+  indexerName: string;
+
+  @Prop({ required: true })
+  userName: string;
+
+  @Prop({ required: false })
+  description: string;
+
+  @Prop({ required: false, default: false })
+  isSynced: boolean;
+
+  @Prop({ required: true })
   events: Array<any>;
 
   @Prop({ required: true })

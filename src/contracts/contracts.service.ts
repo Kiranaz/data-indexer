@@ -87,6 +87,9 @@ export class ContractsService {
     contractAddress: string,
     startBlock: number,
     contractABI: string,
+    userName: string,
+    indexerName: string,
+    description: string,
   ): Promise<any> {
     const abi = await readFirestorageURL(contractABI);
     const events = await getEventsFromABI(abi);
@@ -100,6 +103,10 @@ export class ContractsService {
       startBlock,
       events,
       pastEvents,
+      userName,
+      indexerName,
+      description,
+      isSynced: true,
     });
     contract.save();
     axios.post('http://localhost:8080/', {
