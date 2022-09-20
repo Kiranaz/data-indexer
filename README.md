@@ -1,30 +1,52 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# Data Indexer
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+### Syncing Solution of On-chain and Off-chain Data
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+While working on Dapps, most of the times we need synchronized on-chain and off-chain, so to perform further operations on the data. For example, if we want to show the list of all the users who have staked their tokens, we need to fetch the list of all the stakers from the smart contract and then fetch the details of each staker from the off-chain database. This is a very common use case and we need to solve this problem in a scalable way.
+So, initially we come with the idea of using a centralized database, and create our own data indexer which will listen to the events emitted by the smart contract and update the database accordingly as well as store extra/ off-chain data.
 
-## Description
+# Breakdown of Idea into simpler chunks
+We can break down the idea into simpler chunks and then we can implement them one by one.
+1. Since, Our concern is about synchronization of on-chain and off-chain data both, we opted to first extract on-chain data.
+2. Listen to the events emitted by the smart contract.
+3. Decode the events.
+4. Create a database which will listen to the events emitted by the smart contract and update the database accordingly.
+5. Create a data fetcher which will fetch the data from the database and return it to the user.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## First Strategy
+Just to get the logs of the transaction of a single contract. (real-time/current).
+It used to require contract initialization, which require heavy computation and time and we can’t expect this to execute when we have multiple contracts to listen.
+
+## Second Strategy
+We shifted our strategy to read block by block.
+Filter all the transactions of the block, whether it has our contract’s transaction or not.
+Again, filtration requires a lot of processing.
+Would be useful when we have many contracts to listen, probability of getting transactions in each block would be more.
+What if, processing block could take up time more than 15 seconds.. A con.
+
+# How are we doing now?
+Getting logs of each contract without the need of contract initialization as we fetch required information from contract ABI on our own.
+Just logs are not enough to identify which function was executed under the hood.
+We need to decode the logs to get the function name and its arguments.
+While decoding process, we got to know about event topics, indexed inputs, non-indexed inputs, and how to decode them.\
+Indexed → Will be stored as separate topic (First one is always event topic)\
+Non-Indexed → You’ll have to decode data field
+```
+  const decoder = new AbiCoder();
+    const decodedLogs = logs?.map((log: any) => {
+      let decodedTopics: any[] = event.indexedInputs?.map((input: any) => {
+        const value = decoder?.decode(
+          [input?.type],
+          log.topics[event.indexedInputs.indexOf(input) + 1],
+        );
+        return { [input.name]: value };
+      });
+
+      const decodedDataRaw = decoder?.decode(event.unindexedInputs, log.data);
+      const decodedData = event.unindexedInputs?.map((input: any, i: any) => {
+        return { [input.name]: decodedDataRaw[i] };
+      });
+```
 
 ## Installation
 
@@ -44,30 +66,3 @@ $ npm run start:dev
 # production mode
 $ npm run start:prod
 ```
-
-## Test
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](LICENSE).
