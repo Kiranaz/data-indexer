@@ -17,7 +17,7 @@ const pastEventFilter = async (
   startBlock: number,
   events: any,
 ) => {
-  const allDecodedEvents: any[] = [];
+  let allDecodedEvents: any[] = [];
   for (const event of events) {
     const logs = await provider.getLogs({
       fromBlock: startBlock,
@@ -33,21 +33,44 @@ const pastEventFilter = async (
           [input?.type],
           log.topics[event.indexedInputs.indexOf(input) + 1],
         );
-        return { [input.name]: value };
+        // console.log(
+        //   '🚀 ~ file: contracts.service.ts ~ line 38 ~ letdecodedTopics:any[]=event.indexedInputs?.map ~ decodedTopics',
+        //   value,
+        // );
+        return { [input.name]: value[0] };
       });
 
       const decodedDataRaw = decoder?.decode(event.unindexedInputs, log.data);
+      // console.log(
+      //   '🚀 ~ file: contracts.service.ts ~ line 40 ~ decodedLogs ~ decodedDataRaw',
+      //   decodedDataRaw,
+      // );
       const decodedData = event.unindexedInputs?.map((input: any, i: any) => {
         return { [input.name]: decodedDataRaw[i] };
       });
       decodedTopics = decodedTopics.concat(decodedData, {
         eventName: event.eventName,
       });
-      allDecodedEvents.push(decodedTopics);
+
+      console.log(arrayToObject(decodedTopics), 'decodedTopics');
+      // allDecodedEvents = {
+      //   ...allDecodedEvents,
+      //   ...arrayToObject(decodedTopics),
+      // };
+      allDecodedEvents.push(arrayToObject(decodedTopics));
+      // allDecodedEvents.push(decodedTopics);
       return decodedTopics;
     });
   }
   return allDecodedEvents;
+};
+
+const arrayToObject = (arr: any[]) => {
+  const obj: any = {};
+  for (let i = 0; i < arr.length; i++) {
+    obj[Object.keys(arr[i])[0]] = Object.values(arr[i])[0];
+  }
+  return obj;
 };
 
 const getEventsFromABI = async (erc20abi: any) => {
@@ -113,5 +136,32 @@ export class ContractsService {
       contractAddress: contract.contractAddress,
     });
     return "You're listening to the contract";
+  }
+
+  async queryEvents(contractAddress: string, query: any[]): Promise<any> {
+    console.log('query', query);
+    const contract: any = await this.contractModel.aggregate([
+      {
+        $match: {
+          contractAddress,
+        },
+      },
+      {
+        $project: {
+          pastEvents: {
+            $filter: {
+              input: '$pastEvents',
+              as: 'item',
+              cond: {
+                $and: query,
+              },
+            },
+          },
+          contractAddress: 1,
+        },
+      },
+    ]);
+    console.log('events after query', contract);
+    return contract;
   }
 }

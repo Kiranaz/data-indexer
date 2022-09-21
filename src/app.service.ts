@@ -14,6 +14,14 @@ const provider = new ethers.providers.WebSocketProvider(
   `wss://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_KEY}`,
 );
 
+const arrayToObject = (arr: any[]) => {
+  const obj: any = {};
+  for (let i = 0; i < arr.length; i++) {
+    obj[Object.keys(arr[i])[0]] = Object.values(arr[i])[0];
+  }
+  return obj;
+};
+
 const currentEventFilter = async (
   contractModel: Model<Contract>,
   contractAddress: string,
@@ -41,7 +49,7 @@ const currentEventFilter = async (
                     [input?.type],
                     log.topics[event.indexedInputs.indexOf(input) + 1],
                   );
-                  return { [input.name]: value };
+                  return { [input.name]: value[0] };
                 });
               }
               let decodedData = [];
@@ -63,7 +71,7 @@ const currentEventFilter = async (
           });
           decodedLogs?.map((log: any) => {
             if (log) {
-              saveNewEvent(contractAddress, contractModel, log);
+              saveNewEvent(contractAddress, contractModel, arrayToObject(log));
               return log;
             }
           });

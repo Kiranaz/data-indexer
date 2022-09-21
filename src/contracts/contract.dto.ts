@@ -6,3 +6,7 @@ export class InitializeContractDto {
   indexerName: string;
   description: string;
 }
+
+export class QueryEventsDto {
+  query: any[];
+}

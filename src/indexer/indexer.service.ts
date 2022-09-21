@@ -15,10 +15,10 @@ export class IndexerService {
         {},
         { pastEvents: 0, events: 0 },
       );
-      console.log(
-        'file: indexer.service.ts ~ line 19 ~ IndexerService ~ contract',
-        contract,
-      );
+      // console.log(
+      //   'file: indexer.service.ts ~ line 19 ~ IndexerService ~ contract',
+      //   contract,
+      // );
       return contract;
     } catch (e) {
       throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
@@ -31,10 +31,10 @@ export class IndexerService {
         userName,
         contractAddress,
       });
-      console.log(
-        'file: indexer.service.ts ~ line 19 ~ IndexerService ~ contract',
-        contract,
-      );
+      // console.log(
+      //   'file: indexer.service.ts ~ line 19 ~ IndexerService ~ contract',
+      //   contract,
+      // );
       return contract;
     } catch (e) {
       throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);

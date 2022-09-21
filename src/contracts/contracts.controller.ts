@@ -1,6 +1,6 @@
-import { Body, Controller, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Logger, Param, Post, Get } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
-import { InitializeContractDto } from './initialize-contract.dto';
+import { InitializeContractDto, QueryEventsDto } from './contract.dto';
 
 @Controller('contracts')
 export class ContractsController {
@@ -23,5 +23,18 @@ export class ContractsController {
       initializeContractDto.description,
     );
     return printContractAddress;
+  }
+
+  @Get(':contractAddress')
+  async queryEvents(
+    @Param('contractAddress') contractAddress: string,
+    @Body() queryEventsDto: QueryEventsDto,
+  ): Promise<any> {
+    console.log('contractAddress', contractAddress);
+    const queryEvents = this.contractsService.queryEvents(
+      contractAddress,
+      queryEventsDto.query,
+    );
+    return queryEvents;
   }
 }
