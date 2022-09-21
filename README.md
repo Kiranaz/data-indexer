@@ -5,8 +5,11 @@
 While working on Dapps, most of the times we need synchronized on-chain and off-chain, so to perform further operations on the data. For example, if we want to show the list of all the users who have staked their tokens, we need to fetch the list of all the stakers from the smart contract and then fetch the details of each staker from the off-chain database. This is a very common use case and we need to solve this problem in a scalable way.
 So, initially we come with the idea of using a centralized database, and create our own data indexer which will listen to the events emitted by the smart contract and update the database accordingly as well as store extra/ off-chain data.
 
+![DataIndexer-Usecase](https://user-images.githubusercontent.com/41319684/191402755-da386dd7-3aa1-4ef7-9aee-f041efc2c427.png)
+
 # Breakdown of Idea into simpler chunks
 We can break down the idea into simpler chunks and then we can implement them one by one.
+
 1. Since, Our concern is about synchronization of on-chain and off-chain data both, we opted to first extract on-chain data.
 2. Listen to the events emitted by the smart contract.
 3. Decode the events.
