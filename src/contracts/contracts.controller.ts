@@ -25,7 +25,7 @@ export class ContractsController {
     return printContractAddress;
   }
 
-  @Get(':contractAddress')
+  @Post('/:contractAddress')
   async queryEvents(
     @Param('contractAddress') contractAddress: string,
     @Body() queryEventsDto: QueryEventsDto,
